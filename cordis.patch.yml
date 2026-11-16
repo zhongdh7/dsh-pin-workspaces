@@ -1,0 +1,5 @@
+# dsh-pin-workspaces 的 bundle patch：把置顶插件挂进 DSH 配置树。
+# 行 id 必须全局唯一且与包名一致，商城预检依赖这一点；id 行后面不能写行尾注释。
+- insert:
+    - id: dsh-pin-workspaces
+      name: 'dsh-pin-workspaces'
