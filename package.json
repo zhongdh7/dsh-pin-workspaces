@@ -1,6 +1,6 @@
 {
   "name": "dsh-pin-workspaces",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "把工作区置顶到侧栏最前：右键置顶／取消置顶，置顶行用强调色显示，设置里可查看并取消。",
   "type": "module",
   "main": "lib/index.js",

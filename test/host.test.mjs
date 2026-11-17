@@ -26,6 +26,7 @@ function createRegistry(ids, titles = {}) {
 async function startHost({ registry, dshHome }) {
   process.env.DSH_HOME = dshHome
   let handler
+  const disposers = []
   const ctx = {
     webServer: {
       register: route => {
@@ -36,7 +37,8 @@ async function startHost({ registry, dshHome }) {
     workspaceRegistry: registry,
     logger: { warn: () => {} },
     effect: (fn) => {
-      fn()
+      const disposer = fn()
+      if (typeof disposer === 'function') disposers.push(disposer)
       return () => {}
     },
   }
@@ -44,7 +46,23 @@ async function startHost({ registry, dshHome }) {
   const server = createServer((req, res) => void handler(req, res))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const origin = `http://127.0.0.1:${server.address().port}`
-  return { origin, close: () => new Promise(resolve => server.close(resolve)) }
+  return {
+    origin,
+    close: () => new Promise(resolve => {
+      for (const dispose of disposers.reverse()) dispose()
+      server.close(resolve)
+    }),
+  }
+}
+
+/** 轮询等待条件成立，超时则返回 false。 */
+async function waitFor(predicate, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (predicate()) return true
+    await new Promise(resolve => setTimeout(resolve, 10))
+  }
+  return predicate()
 }
 
 const json = async (response) => ({ status: response.status, body: await response.json() })
@@ -90,6 +108,35 @@ test('路由与顺序：pin 提到最前，unpin 落到置顶区之后', async (
     const state = JSON.parse(await readFile(join(dshHome, 'dsh-pin-workspaces', 'state.json'), 'utf8'))
     assert.deepEqual(state.pinnedWorkspaceIds, ['ws-3'])
   } finally {
+    await host.close()
+  }
+})
+
+test('新建工作区插到最前时，看护会把置顶项压回前排', async () => {
+  const dshHome = await mkdtemp(join(tmpdir(), 'dsh-pin-'))
+  process.env.DSH_PIN_WORKSPACES_WATCH_MS = '25'
+  const registry = createRegistry(['ws-1', 'ws-2'])
+  const host = await startHost({ registry, dshHome })
+  try {
+    await fetch(`${host.origin}/dsh-pin-workspaces/pin`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ workspaceId: 'ws-2' }),
+    })
+    assert.deepEqual(registry.order, ['ws-2', 'ws-1'])
+
+    // 模拟 DSH 新建工作区：注册表把它插到持久顺序最前。
+    registry.order.unshift('ws-new')
+    assert.deepEqual(registry.order, ['ws-new', 'ws-2', 'ws-1'])
+
+    const restored = await waitFor(() => registry.order[0] === 'ws-2' && registry.order[1] === 'ws-new')
+    assert.equal(restored, true)
+    assert.deepEqual(registry.order, ['ws-2', 'ws-new', 'ws-1'])
+
+    const state = JSON.parse(await readFile(join(dshHome, 'dsh-pin-workspaces', 'state.json'), 'utf8'))
+    assert.deepEqual(state.pinnedWorkspaceIds, ['ws-2'])
+  } finally {
+    delete process.env.DSH_PIN_WORKSPACES_WATCH_MS
     await host.close()
   }
 })
