@@ -38,3 +38,7 @@ dsh plugin --profile desktop remove dsh-pin-workspaces
 ```
 
 或在 DSH 应用内用 `plugin_manager` 的 `install_bundle` / `remove_bundle`。
+
+## 许可证
+
+MIT，见 [LICENSE](./LICENSE)。
