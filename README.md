@@ -39,6 +39,26 @@ dsh plugin --profile desktop remove dsh-pin-workspaces
 
 或在 DSH 应用内用 `plugin_manager` 的 `install_bundle` / `remove_bundle`。
 
+## 开发与发布流程
+
+正本是这个工作区里的插件目录：
+
+```sh
+cd C:\Users\Administrator\Desktop\test\dsh-pin-workspaces
+git add -A
+git commit -m "..."
+git push origin main
+```
+
+DSH 实际加载的是安装点 `C:\Users\Administrator\.dsh\plugin-sources\dsh-pin-workspaces`（profile 里的依赖是 `link:` 指向它）。发布后在那里拉一次远端：
+
+```sh
+cd C:\Users\Administrator\.dsh\plugin-sources\dsh-pin-workspaces
+git pull --ff-only
+```
+
+然后重启 DSH（宿主改动必须整进程重启；只有浏览器半侧改动时按 Ctrl+R 即可）。
+
 ## 许可证
 
 MIT，见 [LICENSE](./LICENSE)。
